@@ -16,7 +16,7 @@ export const EVENTS = {
     npcImageSuffix: '',
   },
   summer2022: {
-    start: '2022-06-16T08:00-04:00',
+    start: '2022-06-21T08:00-04:00',
     end: '2022-07-31T20:00-04:00',
     season: 'summer',
     npcImageSuffix: '_summer',
@@ -24,7 +24,7 @@ export const EVENTS = {
   },
   noCurrentEvent: {
     start: '2022-04-30T20:00-04:00',
-    end: '2022-06-16T08:00-04:00',
+    end: '2022-06-21T08:00-04:00',
     season: 'normal',
     npcImageSuffix: '',
   },
