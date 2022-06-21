@@ -342,7 +342,6 @@
     &.active {
     color: $purple-300;
     border-bottom: 2px solid $purple-400;
-    cursor: pointer
     }
 
     &:hover {
