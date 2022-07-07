@@ -61,6 +61,12 @@
 
 <style lang="scss">
   @import '~@/assets/scss/colors.scss';
+  $bg-color: $purple-400;
+
+  @mixin custom-radio-checked-icon ($bg-color) {
+  background-image: str-replace(url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3E%3Ccircle r='3' fill='#{$bg-color}'/%3E%3C/svg%3E"), "#", "%23");
+  }
+
   #subscription-form {
     .custom-control .custom-control-label::before,
     .custom-radio .custom-control-input:checked ~ .custom-control-label::after {
@@ -127,12 +133,12 @@ export default {
   },
   data () {
     return {
+      subscription: {
+        key: 'basic_earned',
+      },
       gift: {
         type: 'subscription',
-        subscription: { key: '' },
-      },
-      subscription: {
-        key: null,
+        subscription: { key: 'basic_earned' },
       },
       receiverName: '',
     };
