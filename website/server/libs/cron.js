@@ -5,7 +5,7 @@ import nconf from 'nconf';
 import { model as User } from '../models/user';
 import common from '../../common';
 import { preenUserHistory } from './preening';
-import sleep from './sleep';
+import { sleep } from './sleep';
 import { revealMysteryItems } from './payments/subscriptions';
 
 const CRON_SAFE_MODE = nconf.get('CRON_SAFE_MODE') === 'true';
@@ -15,7 +15,6 @@ const {
   shouldDo,
   i18n,
   getPlanContext,
-  getPlanMonths,
 } = common;
 const { scoreTask } = common.ops;
 const { loginIncentives } = common.content;
@@ -27,7 +26,7 @@ function setIsDueNextDue (task, user, now) {
   optionsForShouldDo.nextDue = true;
   const nextDue = common.shouldDo(now, task, optionsForShouldDo);
   if (nextDue && nextDue.length > 0) {
-    task.nextDue = nextDue;
+    task.nextDue = nextDue.map(dueDate => dueDate.toISOString());
   }
 }
 
@@ -63,77 +62,16 @@ const CLEAR_BUFFS = {
 };
 
 async function grantEndOfTheMonthPerks (user, now) {
-  // multi-month subscriptions are for multiples of 3 months
-  const SUBSCRIPTION_BASIC_BLOCK_LENGTH = 3;
-
   const { plan, elapsedMonths } = getPlanContext(user, now);
 
   if (elapsedMonths > 0) {
     plan.dateUpdated = now;
-    // For every month, inc their "consecutive months" counter.
-    // Give perks based on consecutive blocks
-    // If they already got perks for those blocks (eg, 6mo subscription,
-    // subscription gifts, etc) - then dec the offset until it hits 0
-
     // Award mystery items
     revealMysteryItems(user, elapsedMonths);
 
-    // 1 for one-month recurring or gift subscriptions; later set to 3 for 3-month recurring, etc.
-    let planMonthsLength = 1;
-
-    for (let i = 0; i < elapsedMonths; i += 1) {
-      plan.consecutive.count += 1;
-
-      plan.consecutive.offset -= 1;
-      // If offset is now greater than 0, the user is within a period
-      // for which they have already been given the consecutive months perks.
-      //
-      // If offset now equals 0, this is the final month for which
-      // the user has already been given the consecutive month perks.
-      // We do not give them more perks yet because they might cancel
-      // the subscription before the next payment is taken.
-      //
-      // If offset is now less than 0, the user EITHER has
-      // a single-month recurring subscription and MIGHT be due for perks,
-      // OR has a multi-month subscription that renewed some time
-      // in the previous calendar month and so they are due for a new set of perks
-      // (strictly speaking, they should have been given the perks
-      // at the time that next payment was taken, but we don't have support for
-      // tracking payments like that - giving the perks when offset is < 0 is a workaround).
-
-      if (plan.consecutive.offset < 0) {
-        if (plan.planId) {
-          planMonthsLength = getPlanMonths(plan);
-        }
-
-        // every 3 months you get one set of perks - this variable records how many sets you need
-        let perkAmountNeeded = 0;
-        if (planMonthsLength === 1) {
-          // User has a single-month recurring subscription and are due for perks
-          // IF they've been subscribed for a multiple of 3 months.
-          if (plan.consecutive.count % SUBSCRIPTION_BASIC_BLOCK_LENGTH === 0) { // every 3 months
-            perkAmountNeeded = 1;
-          }
-          plan.consecutive.offset = 0; // allow the same logic to be run next month
-        } else {
-          // User has a multi-month recurring subscription
-          // and it renewed in the previous calendar month.
-
-          // e.g., for a 6-month subscription, give two sets of perks
-          perkAmountNeeded = planMonthsLength / SUBSCRIPTION_BASIC_BLOCK_LENGTH;
-          // don't need to check for perks again for this many months
-          // (subtract 1 because we should have run this when the payment was taken last month)
-          plan.consecutive.offset = planMonthsLength - 1;
-        }
-        if (perkAmountNeeded > 0) {
-          // one Hourglass every 3 months
-          await plan.updateHourglasses(user._id, perkAmountNeeded, 'subscription_perks'); // eslint-disable-line no-await-in-loop
-          plan.consecutive.gemCapExtra += 5 * perkAmountNeeded; // 5 extra Gems every 3 months
-          // cap it at 50 (hard 25 limit + extra 25)
-          if (plan.consecutive.gemCapExtra > 25) plan.consecutive.gemCapExtra = 25;
-        }
-      }
-    }
+    plan.consecutive.count += elapsedMonths;
+    plan.cumulativeCount += elapsedMonths;
+    await plan.rewardPerks(user._id, elapsedMonths);
   }
 }
 
@@ -149,8 +87,6 @@ function removeTerminatedSubscription (user) {
 
   _.merge(plan.consecutive, {
     count: 0,
-    offset: 0,
-    gemCapExtra: 0,
   });
 
   user.markModified('purchased.plan');
@@ -451,7 +387,7 @@ export async function cron (options = {}) {
   });
 
   // Finished tallying
-  user.history.todos.push({ date: now, value: todoTally });
+  user.history.todos.push({ date: now.toISOString(), value: todoTally });
 
   // tally experience
   let expTally = user.stats.exp;
@@ -461,7 +397,7 @@ export async function cron (options = {}) {
     expTally += common.tnl(lvl);
   }
 
-  user.history.exp.push({ date: now, value: expTally });
+  user.history.exp.push({ date: now.toISOString(), value: expTally });
 
   // Remove any remaining completed todos from the list of active todos
   user.tasksOrder.todos = user.tasksOrder.todos
@@ -509,6 +445,10 @@ export async function cron (options = {}) {
     const { progress } = user.party.quest;
     _progress = progress.toObject(); // clone the old progress object
     _.merge(progress, { down: 0, up: 0, collectedItems: 0 });
+  }
+
+  if (user.pinnedItems && user.pinnedItems.length > 0) {
+    user.pinnedItems = common.cleanupPinnedItems(user);
   }
 
   // Send notification for changes in HP and MP.

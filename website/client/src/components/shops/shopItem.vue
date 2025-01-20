@@ -18,7 +18,7 @@
           :emptyItem="emptyItem"
         ></slot>
         <span
-          v-if="item.event && item.owned == null && showEventBadge"
+          v-if="item.end && item.owned == null && showEventBadge"
           class="badge badge-round badge-item badge-clock"
         >
           <span
@@ -32,14 +32,19 @@
           v-html="icons.lock"
         ></span>
         <span
+          v-if="item.completed"
+          class="svg-icon inline check"
+          v-html="icons.check"
+        ></span>
+        <span
           v-if="item.isSuggested"
           class="suggestedDot"
         ></span>
         <div class="image">
-          <div
+          <Sprite
             v-once
-            :class="item.class"
-          ></div>
+            :image-name="item.class"
+          />
           <slot
             name="itemImage"
             :item="item"
@@ -109,7 +114,7 @@
           </div>
         </div>
         <div
-          v-if="item.event && item.purchaseType !== 'quests'"
+          v-if="item.end && item.purchaseType !== 'quests'"
           :class="item.purchaseType === 'gear' ? 'mt-4' : 'mt-2'"
         >
           {{ limitedString }}
@@ -137,6 +142,22 @@
     &.locked .price {
       opacity: 0.5;
     }
+
+    .hair, .facial-hair, .shirt, .skin {
+      height: 68px;
+    }
+
+    .hair {
+      background-position: -24px -2px;
+    }
+
+    .facial-hair, .skin {
+      background-position: -24px -10px;
+    }
+
+    .shirt {
+      background-position: -23px -32px;
+    }
   }
 
   .image {
@@ -144,11 +165,12 @@
   }
 
   .price {
-    height: 1.75rem;
-    width: 94px;
+    border-radius: 0px 0px 4px 4px;
+    font-size: 0.75rem;
+    line-height: 1;
     margin-left: -1px;
     margin-right: -1px;
-    border-radius: 0px 0px 4px 4px;
+    padding: 0.375rem 0;
 
     &.gems {
       background-color: rgba($green-100, 0.15);
@@ -169,9 +191,7 @@
 
   .price-label {
     font-family: Roboto;
-    font-size: 12px;
     font-weight: bold;
-    line-height: 1.33;
 
     &.gems {
       color: $green-1;
@@ -197,6 +217,15 @@
     right: 8px;
     top: 8px;
     margin-top: 0;
+    color: $gray-200;
+  }
+
+  span.svg-icon.inline.check {
+    height: 16px;
+    width: 16px;
+    position: absolute;
+    left: 4px;
+    top: 4px;
     color: $gray-200;
   }
 
@@ -246,16 +275,19 @@ import svgGem from '@/assets/svg/gem.svg';
 import svgGold from '@/assets/svg/gold.svg';
 import svgHourglasses from '@/assets/svg/hourglass.svg';
 import svgLock from '@/assets/svg/lock.svg';
+import svgCheck from '@/assets/svg/check.svg';
 import svgClock from '@/assets/svg/clock.svg';
 
 import EquipmentAttributesPopover from '@/components/inventory/equipment/attributesPopover';
 
 import QuestInfo from './quests/questInfo.vue';
+import Sprite from '@/components/ui/sprite';
 
 export default {
   components: {
     EquipmentAttributesPopover,
     QuestInfo,
+    Sprite,
   },
   props: {
     item: {
@@ -297,6 +329,7 @@ export default {
         gems: svgGem,
         gold: svgGold,
         lock: svgLock,
+        check: svgCheck,
         hourglasses: svgHourglasses,
         clock: svgClock,
       }),
@@ -335,6 +368,7 @@ export default {
       this.$emit('click', {});
     },
     blur () {
+      if (!this.$refs?.popover) return;
       this.$refs.popover.$emit('enable');
     },
     getPrice () {
@@ -350,17 +384,18 @@ export default {
         'highlight-border': this.highlightBorder,
         suggested: this.item.isSuggested,
         locked: this.item.locked,
+        completed: this.item.completed,
       };
     },
     countdownString () {
-      if (!this.item.event) return;
-      const diffDuration = moment.duration(moment(this.item.event.end).diff(moment()));
+      if (!this.item.end) return;
+      const diffDuration = moment.duration(moment(this.item.end).diff(moment()));
 
       if (diffDuration.asSeconds() <= 0) {
         this.limitedString = this.$t('noLongerAvailable');
       } else if (diffDuration.days() > 0 || diffDuration.months() > 0) {
         this.limitedString = this.$t('limitedAvailabilityDays', {
-          days: moment(this.item.event.end).diff(moment(), 'days'),
+          days: moment(this.item.end).diff(moment(), 'days'),
           hours: diffDuration.hours(),
           minutes: diffDuration.minutes(),
         });

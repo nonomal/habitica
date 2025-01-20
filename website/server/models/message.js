@@ -45,6 +45,7 @@ const inboxSchema = new mongoose.Schema({
   // we store two copies of each inbox messages:
   // one for the sender and one for the receiver
   ownerId: { $type: String, ref: 'User' },
+  uniqueMessageId: String,
   ...defaultSchema(),
 }, {
   minimize: false, // Allow for empty flags to be saved
@@ -67,8 +68,11 @@ export function setUserStyles (newMessage, user) {
 
   if (userCopy.items) {
     userStyles.items.gear = {};
-    userStyles.items.gear.costume = { ...userCopy.items.gear.costume };
-    userStyles.items.gear.equipped = { ...userCopy.items.gear.equipped };
+    if (userCopy.preferences && userCopy.preferences.costume) {
+      userStyles.items.gear.costume = { ...userCopy.items.gear.costume };
+    } else {
+      userStyles.items.gear.equipped = { ...userCopy.items.gear.equipped };
+    }
 
     userStyles.items.currentMount = userCopy.items.currentMount;
     userStyles.items.currentPet = userCopy.items.currentPet;

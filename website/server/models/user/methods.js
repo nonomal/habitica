@@ -2,6 +2,7 @@ import moment from 'moment';
 import {
   defaults, map, flatten, flow, compact, uniq, partialRight, remove,
 } from 'lodash';
+import { v4 as uuid } from 'uuid';
 import common from '../../../common';
 
 import { // eslint-disable-line import/no-cycle
@@ -125,8 +126,11 @@ schema.methods.sendMessage = async function sendMessage (userToReceiveMessage, o
   // whether to save users after sending the message, defaults to true
   const saveUsers = options.save !== false;
 
+  const uniqueMessageId = uuid();
+
   const newReceiverMessage = new Inbox({
     ownerId: userToReceiveMessage._id,
+    uniqueMessageId,
   });
   Object.assign(newReceiverMessage, messageDefaults(options.receiverMsg, sender));
   setUserStyles(newReceiverMessage, sender);
@@ -165,6 +169,7 @@ schema.methods.sendMessage = async function sendMessage (userToReceiveMessage, o
     newSenderMessage = new Inbox({
       sent: true,
       ownerId: sender._id,
+      uniqueMessageId,
     });
     Object.assign(newSenderMessage, messageDefaults(senderMsg, userToReceiveMessage));
     setUserStyles(newSenderMessage, sender);
@@ -216,7 +221,10 @@ schema.methods.addNotification = function addUserNotification (type, data = {}, 
  * @param  data  The data to add to the notification
  */
 schema.statics.pushNotification = async function pushNotification (
-  query, type, data = {}, seen = false,
+  query,
+  type,
+  data = {},
+  seen = false,
 ) {
   const newNotification = new UserNotification({ type, data, seen });
 
@@ -225,10 +233,9 @@ schema.statics.pushNotification = async function pushNotification (
     throw validationResult;
   }
 
-  await this.update(
+  await this.updateMany(
     query,
     { $push: { notifications: newNotification.toObject() } },
-    { multi: true },
   ).exec();
 };
 
@@ -274,13 +281,12 @@ schema.statics.addAchievementUpdate = async function addAchievementUpdate (query
   const validationResult = newNotification.validateSync();
   if (validationResult) throw validationResult;
 
-  await this.update(
+  await this.updateMany(
     query,
     {
       $push: { notifications: newNotification.toObject() },
       $set: { [`achievements.${achievement}`]: true },
     },
-    { multi: true },
   ).exec();
 };
 
@@ -550,17 +556,27 @@ schema.methods.getSecretData = function getSecretData () {
   return user.secret;
 };
 
-schema.methods.updateBalance = async function updateBalance (amount,
+schema.methods.getFlagData = function getFlagData () {
+  const user = this;
+
+  return user.profile.flags;
+};
+
+schema.methods.updateBalance = async function updateBalance (
+  amount,
   transactionType,
   reference,
-  referenceText) {
+  referenceText,
+) {
   this.balance += amount;
 
   if (transactionType === 'buy_gold') {
     // Bulk these together in case the user is not using the bulk-buy feature
-    const lastTransaction = await Transaction.findOne({ userId: this._id },
+    const lastTransaction = await Transaction.findOne(
+      { userId: this._id },
       null,
-      { sort: { createdAt: -1 } });
+      { sort: { createdAt: -1 } },
+    );
     if (lastTransaction.transactionType === transactionType) {
       lastTransaction.amount += amount;
       await lastTransaction.save();

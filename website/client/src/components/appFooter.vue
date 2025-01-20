@@ -1,7 +1,6 @@
 <template>
   <div>
     <buy-gems-modal v-if="user" />
-    <!--modify-inventory(v-if="isUserLoaded")-->
     <footer>
       <!-- Product -->
       <div class="product">
@@ -22,7 +21,7 @@
             </a>
           </li>
           <li>
-            <router-link to="/group-plans">
+            <router-link :to="user ? '/group-plans' : '/static/group-plans'">
               {{ $t('groupPlans') }}
             </router-link>
           </li>
@@ -86,6 +85,13 @@
             >{{ $t('companyContribute') }}
             </a>
           </li>
+          <li>
+            <a
+              href="https://translate.habitica.com/"
+              target="_blank"
+            >{{ $t('translateHabitica') }}
+            </a>
+          </li>
         </ul>
       </div>
       <!-- Support -->
@@ -101,6 +107,7 @@
             v-if="user"
           >
             <a
+              href=""
               target="_blank"
               @click.prevent="openBugReportModal()"
             >
@@ -122,13 +129,6 @@
               href="https://docs.google.com/forms/d/e/1FAIpQLScPhrwq_7P1C6PTrI3lbvTsvqGyTNnGzp1ugi1Ml0PFee_p5g/viewform?usp=sf_link"
               target="_blank"
             >{{ $t('requestFeature') }}
-            </a>
-          </li>
-          <li>
-            <a
-              href="https://habitica.fandom.com/"
-              target="_blank"
-            >{{ $t('wiki') }}
             </a>
           </li>
         </ul>
@@ -179,7 +179,7 @@
       </div>
       <div class="donate-button">
         <button
-          class="button btn-contribute"
+          class="btn button btn-secondary btn-contribute"
           @click="donate()"
         >
           <div class="text">
@@ -205,7 +205,7 @@
             </a>
             <a
               class="social-circle"
-              href="https://twitter.com/habitica"
+              href="https://twitter.com/habitica/"
               target="_blank"
             >
               <div
@@ -215,7 +215,7 @@
             </a>
             <a
               class="social-circle"
-              href="https://www.facebook.com/Habitica"
+              href="https://www.facebook.com/Habitica/"
               target="_blank"
             >
               <div
@@ -224,7 +224,7 @@
               ></div>
             </a><a
               class="social-circle"
-              href="https://www.tumblr.com/Habitica"
+              href="http://blog.habitrpg.com/"
               target="_blank"
             >
               <div
@@ -249,8 +249,8 @@
       </div>
       <div class="melior">
         <div
-          class="logo svg-icon"
-          v-html="icons.gryphon"
+          class="logo svg svg-icon color"
+          v-html="icons.melior"
         ></div>
       </div>
       <!-- DESKTOP PRIVACY & TERMS -->
@@ -283,7 +283,47 @@
       </div>
 
       <div
-        v-if="!IS_PRODUCTION && isUserLoaded"
+        class="time-travel"
+        v-if="TIME_TRAVEL_ENABLED && user?.permissions?.fullAccess"
+        :key="lastTimeJump"
+      >
+        <a
+          class="btn btn-secondary mr-1"
+          @click="jumpTime(-1)"
+        >-1 Day</a>
+        <a
+          class="btn btn-secondary mr-1"
+          @click="jumpTime(-7)"
+        >-7 Days</a>
+        <a
+          class="btn btn-secondary mr-1"
+          @click="jumpTime(-30)"
+        >-30 Days</a>
+        <div class="my-2">
+          Time Traveling! It is {{ new Date().toLocaleDateString() }}
+          <a
+            class="btn btn-small"
+            @click="resetTime()"
+          >
+            Reset
+        </a>
+        </div>
+        <a
+          class="btn btn-secondary mr-1"
+          @click="jumpTime(1)"
+        >+1 Day</a>
+        <a
+          class="btn btn-secondary mr-1"
+          @click="jumpTime(7)"
+        >+7 Days</a>
+        <a
+          class="btn btn-secondary mr-1"
+          @click="jumpTime(30)"
+        >+30 Days</a>
+      </div>
+
+      <div
+        v-if="DEBUG_ENABLED && isUserLoaded"
         class="debug-toggle"
       >
         <button
@@ -294,7 +334,7 @@
         </button>
         <div
           v-if="debugMenuShown"
-          class="debug-toggle debug-group"
+          class="btn debug-toggle debug-group"
         >
           <div class="debug-pop">
             <a
@@ -356,6 +396,10 @@
             >Quest Progress Up</a>
             <a
               class="btn btn-secondary"
+              @click="bossRage()"
+            >+ Boss Rage 😡</a>
+            <a
+              class="btn btn-secondary"
               @click="makeAdmin()"
             >Make Admin</a>
           </div>
@@ -406,14 +450,14 @@ li {
 .donate {
   align-items: flex-end;
   display: flex;
-  justify-content: start;
+  justify-content: flex-start;
   grid-area: donate;
   padding-top: 12px;
 }
 .donate-text {
   grid-area: donate-text;
   font-size: 0.75rem;
-  font-color: $gray-100;
+  color: $gray-100;
   line-height: 1.33;
   display: flex;
   flex-shrink: 1;
@@ -425,7 +469,7 @@ li {
 .social {
   align-items: flex-start;
   display: flex;
-  justify-content: start;
+  justify-content: flex-start;
   grid-area: social;
   padding-top: 12px;
 }
@@ -445,7 +489,7 @@ li {
 .privacy-terms {
   grid-area: privacy-terms;
   display: flex;
-  justify-content: end;
+  justify-content: flex-end;
   line-height: 1.71;
 }
 .terms {
@@ -461,6 +505,15 @@ li {
   grid-area: debug-pop;
    }
 
+.time-travel {
+  grid-area: time-travel;
+
+  a:hover {
+    text-decoration: none !important;
+  }
+
+}
+
 footer {
   background-color: $gray-500;
   color: $gray-50;
@@ -469,10 +522,6 @@ footer {
     color: $gray-50;
   }
   a:hover {
-    color: $purple-300;
-    text-decoration: underline;
-  }
-  a:not([href]):not([class]):hover { // needed to make "report a bug"'s hover state correct
     color: $purple-300;
     text-decoration: underline;
   }
@@ -485,7 +534,8 @@ footer {
     "donate-text donate-text donate-text donate-button social"
     "hr hr hr hr hr"
     "copyright copyright melior privacy-terms privacy-terms"
-    "debug-toggle debug-toggle debug-toggle blank blank";
+    "time-travel time-travel time-travel time-travel time-travel"
+    "debug-toggle debug-toggle debug-toggle debug-toggle debug-toggle";
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: auto;
 
@@ -517,16 +567,16 @@ h3 {
 }
 
 .logo {
-  width: 24px;
+  color: $gray-200;
   height: 24px;
   margin: 0px auto 5px;
-  color: $gray-200;
+  width: 24px;
 }
 
 .terms {
   padding-left: 16px;
-  display:flex;
-  justify-content: end;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .desktop {
@@ -534,42 +584,65 @@ h3 {
 }
 
 .debug {
-  margin-top: 16px;
+  border: 2px solid transparent;
+  box-shadow: 0 1px 3px 0 rgba($black, 0.12), 0 1px 2px 0 rgba($black, 0.24);
   display: flex;
   justify-content: center;
+  margin-top: 16px;
+  padding: 2px 12px;
+
+  &:hover {
+    box-shadow: 0 3px 6px 0 rgba($black, 0.12), 0 3px 6px 0 rgba($black, 0.24);
+  }
+  &:focus  {
+    border: 2px solid $purple-400 !important;
+    box-shadow: 0 3px 6px 0 rgba($black, 0.12), 0 3px 6px 0 rgba($black, 0.24);
+  }
+  :active {
+    border: 2px solid $purple-600 !important;
+    box-shadow: none;
+  }
 }
 
 .debug-group {
-  border-radius: 4px;
-  padding: 16px;
-  box-shadow: 0 1px 3px 0 rgba(26, 24, 29, 0.12), 0 1px 2px 0 rgba(26, 24, 29, 0.24);
-  font-weight: 700;
   background-color: $gray-600;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px 0 rgba($black, 0.12), 0 1px 2px 0 rgba($black, 0.24);
+  font-weight: 700;
+  padding: 8px 16px;
 
  .btn {
   margin: 2px;
   }
+
+  a:hover {
+    border: 2px solid transparent;
+    box-shadow: 0 1px 3px 0 rgba($black, 0.12), 0 1px 2px 0 rgba($black, 0.24);
+    text-decoration: none !important;
+  }
+}
+
+.btn-small {
+  background-color: $maroon-100;
+  border: 2px solid transparent;
+  color: $white !important;
+  line-height: 18px;
+  &:hover {
+    background-color: $maroon-100;
+    text-decoration: none !important;
+    border: 2px solid $maroon-100;
+  }
+}
+.btn-secondary {
+  padding: 2px 12px;
+}
+.btn-secondary a:hover {
+  text-decoration: none !important;
 }
 
 .btn-contribute {
-  background: $white;
-  border-radius: 2px;
-  width: 175px;
-  height: 32px;
-  color: $gray-50;
-  text-align: center;
-  vertical-align: middle;
-  padding: 0;
-  margin: 0;
-    &:hover {
-      color:$purple-300;
-      box-shadow: 0 3px 6px 0 rgba(26, 24, 29, 0.16), 0 3px 6px 0 rgba(26, 24, 29, 0.24);
-    &:active:not(:disabled) {
-      color:$purple-300;
-      border: 1px solid $purple-400;
-      box-shadow: 0 3px 6px 0 rgba(26, 24, 29, 0.16), 0 3px 6px 0 rgba(26, 24, 29, 0.24);
-    }
-  }
+  border: 2px solid transparent;
 
   a {
     display: flex;
@@ -578,6 +651,7 @@ h3 {
   .text{
     display: inline-block;
     vertical-align: bottom;
+    text-overflow: hidden;
   }
 }
 
@@ -674,11 +748,6 @@ h3 {
 
   footer {
     padding: 24px 16px;
-    a:not([href]):not([class]):hover { // needed to make "report a bug"'s hover state correct
-      color: $purple-300;
-      text-decoration: underline;
-    }
-
     column-gap: 1.5rem;
     display: grid;
     grid-template-areas:
@@ -693,6 +762,7 @@ h3 {
       "privacy-policy privacy-policy"
       "mobile-terms mobile-terms"
       "melior melior"
+      "time-travel time-travel"
       "debug-toggle debug-toggle";
     grid-template-columns: repeat(2, 2fr);
     grid-template-rows: auto;
@@ -718,10 +788,6 @@ h3 {
 @media (max-width: 1024px) and (min-width: 768px) {
   footer {
     padding: 24px 24px;
-    a:not([href]):not([class]):hover { // needed to make "report a bug"'s hover state correct
-      color: $purple-300;
-      text-decoration: underline;
-    }
   }
 
   .desktop {
@@ -776,9 +842,10 @@ h3 {
 // modules
 import axios from 'axios';
 import moment from 'moment';
+import Vue from 'vue';
 
 // images
-import gryphon from '@/assets/svg/gryphon.svg';
+import melior from '@/assets/svg/melior.svg';
 import twitter from '@/assets/svg/twitter.svg';
 import facebook from '@/assets/svg/facebook.svg';
 import instagram from '@/assets/svg/instagram.svg';
@@ -789,17 +856,28 @@ import heart from '@/assets/svg/heart.svg';
 import { mapState } from '@/libs/store';
 import buyGemsModal from './payments/buyGemsModal.vue';
 import reportBug from '@/mixins/reportBug.js';
+import { worldStateMixin } from '@/mixins/worldState';
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production'; // eslint-disable-line no-process-env
+const DEBUG_ENABLED = process.env.DEBUG_ENABLED === 'true'; // eslint-disable-line no-process-env
+const TIME_TRAVEL_ENABLED = process.env.TIME_TRAVEL_ENABLED === 'true'; // eslint-disable-line no-process-env
+let sinon;
+if (TIME_TRAVEL_ENABLED) {
+  // eslint-disable-next-line global-require
+  sinon = await import('sinon');
+}
+
 export default {
   components: {
     buyGemsModal,
   },
-  mixins: [reportBug],
+  mixins: [
+    reportBug,
+    worldStateMixin,
+  ],
   data () {
     return {
       icons: Object.freeze({
-        gryphon,
+        melior,
         twitter,
         facebook,
         instagram,
@@ -807,14 +885,16 @@ export default {
         heart,
       }),
       debugMenuShown: false,
-      IS_PRODUCTION,
+      DEBUG_ENABLED,
+      TIME_TRAVEL_ENABLED,
+      lastTimeJump: null,
     };
   },
   computed: {
     ...mapState({ user: 'user.data' }),
     ...mapState(['isUserLoaded']),
     getDataDisplayToolUrl () {
-      const base = 'https://oldgods.net/habitrpg/habitrpg_user_data_display.html';
+      const base = 'https://tools.habitica.com/';
       if (!this.user) return null;
       return `${base}?uuid=${this.user._id}`;
     },
@@ -869,6 +949,27 @@ export default {
         'stats.mp': this.user.stats.mp + 10000,
       });
     },
+    async jumpTime (amount) {
+      const response = await axios.post('/api/v4/debug/jump-time', { offsetDays: amount });
+      if (amount > 0) {
+        Vue.config.clock.jump(amount * 24 * 60 * 60 * 1000);
+      } else {
+        Vue.config.clock.setSystemTime(moment().add(amount, 'days').toDate());
+      }
+      this.lastTimeJump = response.data.data.time;
+      this.triggerGetWorldState(true);
+    },
+    async resetTime () {
+      const response = await axios.post('/api/v4/debug/jump-time', { reset: true });
+      const time = new Date(response.data.data.time);
+      Vue.config.clock.restore();
+      Vue.config.clock = sinon.useFakeTimers({
+        now: time,
+        shouldAdvanceTime: true,
+      });
+      this.lastTimeJump = response.data.data.time;
+      this.triggerGetWorldState(true);
+    },
     addExp () {
       // @TODO: Name these variables better
       let exp = 0;
@@ -892,6 +993,10 @@ export default {
       //  @TODO:  Notification.text('Quest progress increased');
       //  @TODO:  User.sync();
     },
+    async bossRage () {
+      await axios.post('/api/v4/debug/boss-rage');
+    },
+
     async makeAdmin () {
       await axios.post('/api/v4/debug/make-admin');
       // @TODO: Notification.text('You are now an admin!

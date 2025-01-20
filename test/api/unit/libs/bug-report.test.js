@@ -26,9 +26,7 @@ describe('bug-report', () => {
       _id: userId,
     });
 
-    const result = await bugReportLogic(
-      user, userMail, userMessage, userAgent,
-    );
+    const result = await bugReportLogic(user, userMail, userMessage, userAgent);
 
     expect(emailLib.sendTxn).to.be.called;
     expect(result).to.deep.equal({
@@ -46,7 +44,6 @@ describe('bug-report', () => {
         USER_HOURGLASSES: 0,
         USER_ID: userId,
         USER_LEVEL: 1,
-        USER_OFFSET_MONTHS: 0,
         USER_PAYMENT_PLATFORM: undefined,
         USER_SUBSCRIPTION: undefined,
         USER_TIMEZONE_OFFSET: 0,
